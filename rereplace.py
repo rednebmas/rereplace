@@ -6,10 +6,8 @@ import os
 import select
 from binaryornot.check import is_binary
 
+# Todo
 # support renaming files as well
-
-# support input from stdin like find
-# http://stackoverflow.com/questions/3762881/how-do-i-check-if-stdin-has-some-data
 
 if sys.version_info.major < 3:
     print("Must have Python 3")
@@ -38,32 +36,30 @@ Regex cheat sheet:
   The first capture group backreference is \1""")
     sys.exit()
 
-valid_options = ['--exec', '-e']
-
 search_pattern = sys.argv[1]
+compiled_pattern = re.compile(search_pattern)
 replace_pattern = sys.argv[2]
+
+valid_options = ['--exec', '-e']
 options = list( filter(lambda s: s in valid_options, sys.argv) )
+if '-e' in options or '--exec' in options:
+    print('EXECUTING replacement')
 
 if sys.stdin:
     files = [l.rstrip() for l in sys.stdin]
 else:
-    files_start_index = 2 + len(options) + 1
+    files_start_index = 2 + len(options) + 1 # 2 = search_pat + replc_pat, 1 = next argv
     files = sys.argv[files_start_index:]
 
 if False:
     print('sys.argv = ' + str(sys.argv))
+    print('search_pattern = ' + search_pattern)
     print('files = ' + str(files))
-
-compiled_pattern = re.compile(search_pattern)
-line_end_compiled = re.compile('.*\n')
 
 arrow_color = '\033[91m'
 bold_format = '\033[1m'
 end_format = '\033[0m'
-
-if '-e' in options or '--exec' in options:
-    print('EXECUTING replacement')
-
+line_end_compiled = re.compile('.*\n')
 fencepost_newline = ""
 match_found = False
 
@@ -94,7 +90,13 @@ for fpath in files:
             line_no = next(i for i in range(len(lines)) if lines[i] > match.start())
             match = match.group(0)
             replacement = re.sub(compiled_pattern, replace_pattern, match)
-            print('[{}] {} {}=>{} {}'.format(line_no, match, arrow_color + bold_format, end_format, replacement))
+            print('[{}] {} {}=>{} {}'.format(
+                line_no, 
+                match, 
+                arrow_color + bold_format, 
+                end_format, 
+                replacement
+            ))
 
         # perform the replacement if in execute mode
         if '-e' in options or '--exec' in options:
@@ -103,9 +105,5 @@ for fpath in files:
 
 if match_found == False:
     print('No matches found in {} files'.format(len(files)))
-
-
-
-
 
 
