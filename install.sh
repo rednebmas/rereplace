@@ -1,2 +1,2 @@
 sudo rm /usr/local/bin/rereplace
-cp 
+sudo cp rereplace.py /usr/local/bin/rereplace
