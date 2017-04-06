@@ -10,6 +10,9 @@ from binaryornot.check import is_binary
 # support input from stdin like find
 # http://stackoverflow.com/questions/3762881/how-do-i-check-if-stdin-has-some-data
 
+# support re.DOTALL
+# https://docs.python.org/3/library/re.html#re.DOTALL
+
 if sys.version_info.major < 3:
     print("Must have Python 3")
     sys.exit()
@@ -18,24 +21,26 @@ if len(sys.argv) < 2 or sys.argv[1] == 'help':
     print("""This is the python regexp find and replace utility.
 Created by Sam Bender 2017.
 
+Note: by default, this utility does not replace text. It only outputs what the replacement would have been. In oder to execute the replacement, add the --exec or -e flag.
+
 The options listed below must come *before* and files.
 
 Options:
-  -t or --test: don't perform replacements, just output matches and replacements
+  -e or --exec: perform the replacement. by default, the replacement is not performed.
 
 Usage:
-  replace "search_pattern" "replace_pattern" file1 file2 file3 ...
-  find . | replace "search_pattern" "replace_pattern" -t
+  rereplace "search_pattern" "replace_pattern" file1 file2 file3 ...
+  find . | rereplace "search_pattern" "replace_pattern" -t
 
 Examples:
-  replace "hello" "HELLO THERE" *
+  rereplace "hello" "HELLO THERE" *
 
 Regex cheat sheet:
   Characters that need to be escaped: *\.^$+?[]()|
   The first capture group backreference is \1""")
     sys.exit()
 
-valid_options = ['-t', '--test']
+valid_options = ['--exec', '-e']
 
 search_pattern = sys.argv[1]
 replace_pattern = sys.argv[2]
@@ -46,9 +51,10 @@ print('sys.argv = ' + str(sys.argv))
 
 files_start_index = 2 + len(options) + 1
 files = sys.argv[files_start_index:]
-print('files = ' + str(files) + '\n')
+print('files = ' + str(files))
 
 compiled_pattern = re.compile(search_pattern)
+line_end_compiled = re.compile('.*\n')
 
 arrow_color = '\033[91m'
 bold_format = '\033[1m'
@@ -61,23 +67,31 @@ for fpath in files:
     with open(fpath, 'r') as f:
         contents = f.read()
 
-    if compiled_pattern.search(contents):
+    if compiled_pattern.search(contents, re.MULTILINE):
         if is_binary(fpath):
             print('Skipping matches for binary file <{0}>'.format(fname))
             continue
 
-        print(bold_format + "<" + fpath + ">" + end_format)
+        print(bold_format + "\n<" + fpath + ">" + end_format)
+
+
+        # pre-parse file contents so we can print out line numbers
+        # based on http://stackoverflow.com/a/16674895/337934
+        lines = []
+        for m in re.finditer(line_end_compiled, contents):
+            lines.append(m.end())
 
         # print out the replacements
-        matches = compiled_pattern.findall(contents)
-        for match in matches:
-            replacement = re.sub(compiled_pattern, replace_pattern, match)
-            print('{} {}=>{} {}'.format(match, arrow_color + bold_format, end_format, replacement))
+        for match in compiled_pattern.finditer(contents):
+            line_no = next(i for i in range(len(lines)) if lines[i] > match.start())
+            match = match.group(0)
+            replacement = re.sub(compiled_pattern, replace_pattern, match, re.MULTILINE)
+            print('[{}] {} {}=>{} {}'.format(line_no, match, arrow_color + bold_format, end_format, replacement))
 
-        # perform the replacement if not in test mode
-        if '-t' not in options and '--test' not in options:
+        # perform the replacement if in execute mode
+        if '-e' in options or '--exec' in options:
             with open(fpath, 'w') as f:
-                f.write(re.sub(compiled_pattern, replace_pattern, contents))
+                f.write(re.sub(compiled_pattern, replace_pattern, contents, re.MULTILINE))
 
 
 
